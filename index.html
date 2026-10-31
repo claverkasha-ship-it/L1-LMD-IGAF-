@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L1 LMD IGAF</title>
+<style>
+:root{--b:#14284b;--o:#f28c28;--bg:#f2f5fa;--g:#1e9e5a;--r:#d64545}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:#222;padding-bottom:80px}
+header{background:linear-gradient(135deg,var(--b),#2a4a8a);color:#fff;padding:22px 16px 26px;border-radius:0 0 26px 26px}
+header h1{margin:0;font-size:22px}
+header p{margin:4px 0 0;opacity:.8;font-size:13px}
+main{padding:16px;max-width:520px;margin:auto}
+.card{background:#fff;border-radius:16px;padding:14px;margin-bottom:12px;box-shadow:0 2px 8px #0001}
+.stats{display:flex;gap:10px;margin-bottom:12px}
+.stat{flex:1;background:#fff;border-radius:16px;padding:12px 6px;text-align:center;box-shadow:0 2px 8px #0001}
+.stat b{display:block;font-size:24px;color:var(--b)}
+.stat span{font-size:12px;color:#666}
+.menu{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.menu button{background:#fff;border:0;border-radius:16px;padding:18px 8px;font-size:15px;font-weight:600;color:var(--b);box-shadow:0 2px 8px #0001}
+.menu button span{display:block;font-size:30px;margin-bottom:6px}
+h3{margin:0 0 10px;color:var(--b);font-size:16px}
+.chart{display:flex;gap:8px;align-items:flex-end;height:130px}
+.bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%}
+.bar i{display:block;width:100%;background:var(--o);border-radius:6px 6px 0 0;min-height:2px}
+small{color:#666;font-size:12px}
+input,select{width:100%;padding:12px;border:1px solid #ccd;border-radius:10px;margin:4px 0;font-size:15px;background:#fff}
+button.main{width:100%;padding:12px;border:0;border-radius:10px;background:var(--o);color:#fff;font-size:15px;font-weight:700;margin-top:4px}
+.row{display:flex;align-items:center;gap:12px;background:#fff;border-radius:12px;padding:12px;margin-bottom:8px;box-shadow:0 1px 4px #0001}
+.row input{width:22px;height:22px;margin:0}
+.row span{flex:1}
+.row a,.chip a{color:var(--r);font-weight:700;padding:4px 8px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.tag{padding:4px 10px;border-radius:20px;color:#fff;font-weight:700;font-size:13px}
+.ok{background:var(--g)}.bad{background:var(--r)}
+.chip{display:inline-block;background:#eef2fa;border-radius:20px;padding:4px 4px 4px 10px;margin:3px 4px 3px 0;font-size:13px}
+.vide{text-align:center;color:#777;padding:30px 10px}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;display:flex;box-shadow:0 -2px 10px #0002}
+nav button{flex:1;border:0;background:none;padding:8px 0;font-size:11px;color:#777}
+nav button span{display:block;font-size:20px}
+nav button.on{color:var(--o);font-weight:700}
+</style>
+</head>
+<body>
+<header><h1>L1 LMD IGAF</h1><p id="sous">Accueil</p></header>
+<main id="app"></main>
+<nav>
+<button data-p="accueil" onclick="go('accueil')"><span>🏠</span>Accueil</button>
+<button data-p="etudiants" onclick="go('etudiants')"><span>👥</span>Étudiants</button>
+<button data-p="presences" onclick="go('presences')"><span>✅</span>Présences</button>
+<button data-p="notes" onclick="go('notes')"><span>📝</span>Notes</button>
+<button data-p="horaire" onclick="go('horaire')"><span>📅</span>Horaire</button>
+</nav>
+<script>
+let etu=JSON.parse(localStorage.getItem("igaf")||"null")||JSON.parse(localStorage.getItem("etu")||"[]").map(e=>({nom:e.nom,pres:{},notes:[]}));
+
+const COURS=[
+{j:0,h:"08:00",m:"Informatique (Prof Kuyunsa)"},
+{j:0,h:"14:00",m:"Éducation citoyenneté (Prof Lubo)"},
+{j:1,h:"08:00",m:"Algorithme I (Prof Kutangila)"},
+{j:1,h:"14:00",m:"Phonétique (Prof Malekani)"},
+{j:2,h:"08:00",m:"Anglais I (Prof Mafuta)"},
+{j:2,h:"14:00",m:"Logique (Prof Abe)"},
+{j:3,h:"08:00",m:"Math algèbre (Prof Ekembe)"},
+{j:3,h:"14:00",m:"Bureautique (Prof Mwanza)"},
+{j:4,h:"08:00",m:"Méthode de programmation (Prof Kuyunsa)"},
+{j:4,h:"14:00",m:"T.E.O (Prof Bulele)"},
+{j:5,h:"08:00",m:"Comptabilité financière (Prof Mayembe)"},
+{j:5,h:"14:00",m:"Hygiène & environnement (Prof Kimuanga)"}
+];
+let hor=JSON.parse(localStorage.getItem("igaf_h")||"[]");
+if(!localStorage.getItem("igaf_h_init")){
+  hor=COURS;
+  localStorage.setItem("igaf_h_init","1");
+  localStorage.setItem("igaf_h",JSON.stringify(hor));
+}
+
+const JOURS=["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+const $=id=>document.getElementById(id);
+const today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);
+let page="accueil",dateSel=today();
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const moy=e=>e.notes.length?(e.notes.reduce((s,x)=>s+x.v,0)/e.notes.length).toFixed(1):"-";
+const vide='<div class="vide">Aucun étudiant. Ajoute-en dans la page Étudiants.</div>';
+function save(){localStorage.setItem("igaf",JSON.stringify(etu));localStorage.setItem("igaf_h",JSON.stringify(hor));render();}
+function go(p){page=p;render();window.scrollTo(0,0);}
+
+function addEtu(){const n=$("nom").value.trim();if(n){etu.push({nom:n,pres:{},notes:[]});save();}}
+function delEtu(i){if(confirm("Supprimer cet étudiant ?")){etu.splice(i,1);save();}}
+function toggle(i){etu[i].pres[dateSel]=!etu[i].pres[dateSel];save();}
+function addNote(){
+  const i=$("ne").value,m=$("nm").value.trim(),v=parseFloat($("nv").value);
+  if(!m||isNaN(v)||v<0||v>20){alert("Entre une matière et une note entre 0 et 20");return;}
+  etu[i].notes.push({m:m,v:v});save();
+}
+function delNote(i,k){etu[i].notes.splice(k,1);save();}
+function addCours(){
+  const m=$("hm").value.trim(),h=$("hh").value;
+  if(!m||!h){alert("Entre la matière et l'heure");return;}
+  hor.push({j:+$("hj").value,h:h,m:m});save();
+}
+function delCours(k){hor.splice(k,1);save();}
+
+function coursDuJour(){
+  const j=(new Date().getDay()+6)%7;
+  const l=hor.filter(c=>c.j===j).sort((a,b)=>a.h.localeCompare(b.h));
+  return `<div class="card"><h3>Cours d'aujourd'hui (${j<6?JOURS[j]:"Dimanche"})</h3>`+
+  (l.length?l.map(c=>`<p style="margin:6px 0"><b>${c.h}</b> · ${esc(c.m)}</p>`).join(""):"<small>Pas de cours aujourd'hui.</small>")+`</div>`;
+}
+
+const pages={
+accueil(){
+  const j=today(),p=etu.filter(e=>e.pres[j]).length;
+  const all=etu.flatMap(e=>e.notes.map(n=>n.v));
+  const mg=all.length?(all.reduce((a,b)=>a+b,0)/all.length).toFixed(1):"-";
+  const dates=[...new Set(etu.flatMap(e=>Object.keys(e.pres).filter(k=>e.pres[k])))].sort().slice(-5);
+  const bars=dates.map(d=>{const n=etu.filter(e=>e.pres[d]).length,h=Math.round(n*100/etu.length);
+    return `<div class="bar"><small>${h}%</small><i style="height:${h}px"></i><small>${d.slice(8)}/${d.slice(5,7)}</small></div>`}).join("");
+  return `<div class="stats">
+    <div class="stat"><b>${etu.length}</b><span>Étudiants</span></div>
+    <div class="stat"><b>${p}</b><span>Présents aujourd'hui</span></div>
+    <div class="stat"><b>${mg}</b><span>Moyenne générale</span></div></div>
+  <div class="menu">
+    <button onclick="go('etudiants')"><span>👥</span>Étudiants</button>
+    <button onclick="go('presences')"><span>✅</span>Présences</button>
+    <button onclick="go('notes')"><span>📝</span>Notes</button>
+    <button onclick="go('horaire')"><span>📅</span>Horaire</button></div>
+  ${coursDuJour()}<div class="card"><h3>Taux de présence (5 derniers cours)</h3>
+    ${bars?`<div class="chart">${bars}</div>`:"<small>Aucune présence enregistrée pour le moment.</small>"}</div>`;
+},
+etudiants(){
+  return `<div class="card"><input id="nom" placeholder="Nom de l'étudiant"><button class="main" onclick="addEtu()">Ajouter</button></div>`+
+  (etu.length?etu.map((e,i)=>`<div class="row"><span>${esc(e.nom)}</span><a onclick="delEtu(${i})">✕</a></div>`).join(""):vide);
+},
+presences(){
+  const n=etu.filter(e=>e.pres[dateSel]).length;
+  return `<div class="card"><label>Date du cours</label><input type="date" value="${dateSel}" onchange="dateSel=this.value;render()"><p><b>${n}</b> présent(s) sur ${etu.length}</p></div>`+
+  (etu.length?etu.map((e,i)=>`<label class="row"><input type="checkbox" ${e.pres[dateSel]?"checked":""} onchange="toggle(${i})"><span>${esc(e.nom)}</span></label>`).join(""):vide);
+},
+notes(){
+  if(!etu.length)return vide;
+  const opts=etu.map((e,i)=>`<option value="${i}">${esc(e.nom)}</option>`).join("");
+  return `<div class="card"><select id="ne">${opts}</select><input id="nm" placeholder="Matière"><input id="nv" type="number" step="0.5" min="0" max="20" placeholder="Note sur 20"><button class="main" onclick="addNote()">Ajouter la note</button></div>`+
+  etu.map((e,i)=>{const m=moy(e);
+    return `<div class="card"><div class="top"><b>${esc(e.nom)}</b><span class="tag ${m!=="-"&&m<10?"bad":"ok"}">${m}</span></div>`+
+    (e.notes.map((x,k)=>`<span class="chip">${esc(x.m)} : ${x.v} <a onclick="delNote(${i},${k})">✕</a></span>`).join("")||"<small>Aucune note</small>")+`</div>`}).join("");
+},
+horaire(){
+  const js=JOURS.map((j,i)=>`<option value="${i}">${j}</option>`).join("");
+  const liste=hor.map((c,k)=>({...c,k})).sort((a,b)=>a.j-b.j||a.h.localeCompare(b.h));
+  return `<div class="card"><select id="hj">${js}</select><input id="hh" type="time"><input id="hm" placeholder="Matière"><button class="main" onclick="addCours()">Ajouter le cours</button></div>`+
+  (liste.length?liste.map(c=>`<div class="row"><span><b>${JOURS[c.j]}</b> · ${c.h}<br>${esc(c.m)}</span><a onclick="delCours(${c.k})">✕</a></div>`).join(""):'<div class="vide">Aucun cours dans l\'horaire.</div>');
+}};
+
+function render(){
+  const t={accueil:"Accueil",etudiants:"Étudiants",presences:"Présences",notes:"Notes",horaire:"Horaire des cours"};
+  $("sous").textContent=t[page];
+  $("app").innerHTML=pages[page]();
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.p===page));
+}
+render();
+</script>
+</body>
+  </html>
