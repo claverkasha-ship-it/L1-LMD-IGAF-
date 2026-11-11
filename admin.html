@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Gestion L1 LMD IGAF</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:#f2f5fa;color:#222}
+header{background:linear-gradient(135deg,#14284b,#2a4a8a);color:#fff;padding:22px 16px;border-radius:0 0 26px 26px}
+header h1{margin:0;font-size:22px}
+header p{margin:4px 0 0;opacity:.85;font-size:13px}
+main{max-width:520px;margin:16px auto;padding:0 16px}
+.card{background:#fff;border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px #0001}
+input{width:100%;padding:13px;border:1px solid #ccd;border-radius:10px;font-size:16px;margin:6px 0}
+button{padding:12px;border:0;border-radius:10px;background:#f28c28;color:#fff;font-size:15px;font-weight:700}
+.full{width:100%}
+.gris{background:#14284b}
+.rouge{background:#d64545}
+.row{display:flex;gap:8px;margin-top:8px}
+.row button{flex:1}
+ul{list-style:none;margin:0;padding:0}
+li{background:#fff;border-radius:12px;padding:12px;margin-bottom:8px;box-shadow:0 1px 4px #0001;display:flex;align-items:center;gap:8px}
+li span{flex:1;word-break:break-word}
+li button{padding:8px 10px;font-size:13px}
+#err,#compte{font-weight:600}
+#err{color:#d64545}
+.hide{display:none}
+</style>
+</head>
+<body>
+<header><h1>L1 LMD IGAF</h1><p>Espace du gestionnaire</p></header>
+<main>
+
+<div id="login" class="card">
+  <label>E-mail</label>
+  <input id="em" type="email" autocomplete="username">
+  <label>Mot de passe</label>
+  <input id="pw" type="password" autocomplete="current-password">
+  <button id="go" class="full">Se connecter</button>
+  <p id="err"></p>
+</div>
+
+<div id="panel" class="hide">
+  <div class="card">
+    <p id="compte">Chargement...</p>
+    <input id="q" placeholder="Rechercher un nom">
+    <div class="row">
+      <button id="copier" class="gris">Copier la liste</button>
+      <button id="out" class="rouge">Déconnexion</button>
+    </div>
+  </div>
+  <ul id="liste"></ul>
+</div>
+
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getFirestore, collection, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyC2j0Io4H6rnYmHL5SnqJ6dCp57-Jqnq7w",
+  authDomain: "igaf-auditoire-93de3.firebaseapp.com",
+  projectId: "igaf-auditoire-93de3",
+  storageBucket: "igaf-auditoire-93de3.firebasestorage.app",
+  messagingSenderId: "356774018994",
+  appId: "1:356774018994:web:9e4bacc0f137da5466eeab"
+});
+const auth = getAuth(app);
+const db = getFirestore(app);
+const $ = id => document.getElementById(id);
+
+let liste = [];
+let unsub = null;
+
+$("go").onclick = async () => {
+  $("err").textContent = "";
+  try {
+    await signInWithEmailAndPassword(auth, $("em").value.trim(), $("pw").value);
+  } catch (e) {
+    $("err").textContent = "E-mail ou mot de passe incorrect.";
+  }
+};
+$("out").onclick = () => signOut(auth);
+$("q").oninput = afficher;
+
+$("copier").onclick = async () => {
+  const t = liste.map((x, i) => (i + 1) + ". " + x.nom).join("\n");
+  try { await navigator.clipboard.writeText(t); alert("Liste copiée."); }
+  catch (e) { alert("Copie impossible sur cet appareil."); }
+};
+
+function afficher() {
+  const q = $("q").value.trim().toLowerCase();
+  const ul = $("liste");
+  ul.replaceChildren();
+  const f = liste.filter(x => x.nom.toLowerCase().includes(q));
+  $("compte").textContent = liste.length + " inscrit(s)" + (q ? " · " + f.length + " trouvé(s)" : "");
+  f.forEach(x => {
+    const li = document.createElement("li");
+    const s = document.createElement("span");
+    s.textContent = (liste.indexOf(x) + 1) + ". " + x.nom;
+    const b1 = document.createElement("button");
+    b1.textContent = "Modifier";
+    b1.onclick = async () => {
+      const n = prompt("Corriger le nom :", x.nom);
+      if (n && n.trim().length > 1) await updateDoc(doc(db, "inscrits", x.id), { nom: n.trim() });
+    };
+    const b2 = document.createElement("button");
+    b2.textContent = "Supprimer";
+    b2.className = "rouge";
+    b2.onclick = async () => {
+      if (confirm("Supprimer " + x.nom + " ?")) await deleteDoc(doc(db, "inscrits", x.id));
+    };
+    li.append(s, b1, b2);
+    ul.append(li);
+  });
+}
+
+onAuthStateChanged(auth, user => {
+  if (user) {
+    $("login").classList.add("hide");
+    $("panel").classList.remove("hide");
+    unsub = onSnapshot(
+      query(collection(db, "inscrits"), orderBy("date")),
+      snap => { liste = snap.docs.map(d => ({ id: d.id, ...d.data() })); afficher(); },
+      () => { $("compte").textContent = "Accès refusé : ce compte n'est pas le gestionnaire."; }
+    );
+  } else {
+    if (unsub) { unsub(); unsub = null; }
+    liste = [];
+    $("panel").classList.add("hide");
+    $("login").classList.remove("hide");
+  }
+});
+</script>
+</body>
+  </html>
