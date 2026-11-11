@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inscription L1 LMD IGAF</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,sans-serif;background:#f2f5fa;color:#222}
+header{background:linear-gradient(135deg,#14284b,#2a4a8a);color:#fff;padding:26px 16px;border-radius:0 0 26px 26px;text-align:center}
+header h1{margin:0;font-size:24px}
+header p{margin:6px 0 0;opacity:.85;font-size:14px}
+.box{max-width:480px;margin:20px auto;padding:0 16px}
+.card{background:#fff;border-radius:16px;padding:18px;box-shadow:0 2px 8px #0001}
+input{width:100%;padding:14px;border:1px solid #ccd;border-radius:10px;font-size:16px;margin:8px 0}
+button{width:100%;padding:14px;border:0;border-radius:10px;background:#f28c28;color:#fff;font-size:16px;font-weight:700}
+button:disabled{opacity:.6}
+#msg{margin:12px 0 0;font-weight:600;text-align:center}
+.ok{color:#1e9e5a}.err{color:#d64545}
+</style>
+</head>
+<body>
+<header><h1>L1 LMD IGAF</h1><p>Inscription à la promotion</p></header>
+<div class="box"><div class="card">
+<label>Écris ton nom complet</label>
+<input id="nom" placeholder="Ex : Jean Mukendi" maxlength="59" autocomplete="name">
+<button id="btn">S'inscrire</button>
+<p id="msg"></p>
+</div></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyC2j0Io4H6rnYmHL5SnqJ6dCp57-Jqnq7w",
+  authDomain: "igaf-auditoire-93de3.firebaseapp.com",
+  projectId: "igaf-auditoire-93de3",
+  storageBucket: "igaf-auditoire-93de3.firebasestorage.app",
+  messagingSenderId: "356774018994",
+  appId: "1:356774018994:web:9e4bacc0f137da5466eeab"
+});
+const db = getFirestore(app);
+const $ = id => document.getElementById(id);
+
+function msg(t, ok){ const m=$("msg"); m.textContent=t; m.className=ok?"ok":"err"; }
+
+$("btn").onclick = async () => {
+  const nom = $("nom").value.trim().replace(/\s+/g, " ");
+  if (nom.length < 2) { msg("Écris ton nom complet.", false); return; }
+  $("btn").disabled = true;
+  try {
+    await addDoc(collection(db, "inscrits"), { nom: nom, date: new Date().toISOString() });
+    $("nom").value = "";
+    msg("✅ Inscription enregistrée. Merci " + nom + " !", true);
+  } catch (e) {
+    msg("Erreur : vérifie ta connexion et réessaie.", false);
+  }
+  $("btn").disabled = false;
+};
+</script>
+</body>
+  </html>
